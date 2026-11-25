@@ -89,6 +89,7 @@ jobs:
 
       - name: Checkout target repo
         if: |
+          github.event_name == 'schedule' &&
           steps.workflow-permission.outputs.has_permission == 'true' &&
           (vars.SCHEDULED_BUILD != 'false' || vars.SCHEDULED_SYNC != 'false')
         uses: actions/checkout@v5
@@ -96,8 +97,11 @@ jobs:
           token: ${{ secrets.GH_PAT }}
 
       # This syncs any target branch to upstream branch of the same name
+      # Scheduled runs sync the target branch with the upstream branch of the same name.
+      # Manual runs build the selected branch without checking for upstream commits.
       - name: Sync upstream changes
         if: | # do not run the upstream sync action on the upstream repository
+          github.event_name == 'schedule' &&
           steps.workflow-permission.outputs.has_permission == 'true' &&
           vars.SCHEDULED_SYNC != 'false' && github.repository_owner != 'LoopKit'
         id: sync
@@ -112,18 +116,20 @@ jobs:
       # Display a sample message based on the sync output var 'has_new_commits'
       - name: New commits found
         if: |
+          github.event_name == 'schedule' &&
           steps.workflow-permission.outputs.has_permission == 'true' &&
           vars.SCHEDULED_SYNC != 'false' && steps.sync.outputs.has_new_commits == 'true'
         run: echo "New commits were found to sync."
 
       - name: No new commits
         if: |
+          github.event_name == 'schedule' &&
           steps.workflow-permission.outputs.has_permission == 'true' &&
           vars.SCHEDULED_SYNC != 'false' && steps.sync.outputs.has_new_commits == 'false'
         run: echo "There were no new commits."
 
       - name: Show value of 'has_new_commits'
-        if: steps.workflow-permission.outputs.has_permission == 'true' && vars.SCHEDULED_SYNC != 'false'
+        if: github.event_name == 'schedule' && steps.workflow-permission.outputs.has_permission == 'true' && vars.SCHEDULED_SYNC != 'false'
         run: |
           echo ${{ steps.sync.outputs.has_new_commits }}
           echo "NEW_COMMITS=${{ steps.sync.outputs.has_new_commits }}" >> $GITHUB_OUTPUT
